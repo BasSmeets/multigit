@@ -1,11 +1,4 @@
 #!/bin/bash
-## changelog
-# v1.0 added automatic PR creation using bitbucket-cli
-
-## README
-# have pip installed
-# run: sudo python -m pip install bitbucket-cli
-# see - https://bitbucket.org/zhemao/bitbucket-cli/src/master/
 
 ## SETTINGS
 # bitbucket credentials down below for automatic PR creation
@@ -32,29 +25,56 @@ develop-wave5
 )
 
 ## SCRIPT STARTS HERE
-read -p "desired target branch basename: "  TARGETBRANCHNAME
-echo -e "${BLUE} $TARGETBRANCHNAME-xxxxx chosen ${NOCOLOR}"
-read -p "commit to be cherry-picked: " CHERRYCOMMIT
-echo -e "${BLUE}commit = ${CHERRYCOMMIT} ${NOCOLOR}"
-for BRANCH in "${BRANCHES[@]}";
-do
-    echo -e "${BLUE}checking out branch $BRANCH ${NOCOLOR}"
-    git checkout $BRANCH;
-    echo -e "${BLUE}pulling latest changes ${NOCOLOR}"
-    git pull > /dev/null 2>&1;
-    echo -e "${BLUE}checking out branch ${TARGETBRANCHNAME}-${BRANCH: -5} ${NOCOLOR}"
-    git checkout -B ${TARGETBRANCHNAME}-${BRANCH: -5}
-    echo -e "${BLUE}cherry picking ${CHERRYCOMMIT} ${NOCOLOR}"
-    if git cherry-pick ${CHERRYCOMMIT}; then
-        echo -e "${GREEN}cherry picking succesfull, pushing to remote for branch ${BRANCH}"
-        git push;
-        bitbucket pull_request ${TARGETBRANCHNAME}-${BRANCH: -5} ${BRANCH} --username ${BB_USERNAME} --password ${BB_PASSWORD} --reponame ${BB_REPO} --owner ${BB_OWNER} --title "PR for ${TARGETBRANCHNAME}-${BRANCH: -5}"
-        echo -e "${GREEN}PR created${BRANCH}"
-    else
-        echo -e "${RED}failed automatic cherry-picked without conflicts on branch ${BRANCH} please fix this manually ${NOCOLOR}";
-        git status;
-        exit 1;
-    fi
-done
+function run() {
+    if command -v jq > /dev/null; then 
+        read -p "desired target branch basename: "  TARGETBRANCHNAME
+        echo -e "${BLUE} $TARGETBRANCHNAME-xxxxx chosen ${NOCOLOR}"
+        read -p "commit to be cherry-picked: " CHERRYCOMMIT
+        echo -e "${BLUE}commit = ${CHERRYCOMMIT} ${NOCOLOR}"
+        COMMITMSG="$(git log --format=%B -n 1 ${CHERRYCOMMIT})"
+        setDefaultRepoReviewers
+        echo ${DEFAULT_REVIEWERS}
 
-echo -e "${GREEN}multi git successfull ${NOCOLOR}"
+        for BRANCH in "${BRANCHES[@]}";
+        do
+            echo -e "${BLUE}checking out branch $BRANCH ${NOCOLOR}"
+            git checkout $BRANCH;
+            echo -e "${BLUE}pulling latest changes ${NOCOLOR}"
+            git pull > /dev/null 2>&1;
+            echo -e "${BLUE}checking out branch ${TARGETBRANCHNAME}-${BRANCH: -5} ${NOCOLOR}"
+            git checkout -B ${TARGETBRANCHNAME}-${BRANCH: -5}
+            echo -e "${BLUE}cherry picking ${CHERRYCOMMIT} ${NOCOLOR}"
+            if git cherry-pick ${CHERRYCOMMIT}; then
+                echo -e "${GREEN}cherry picking succesfull, pushing to remote for branch ${BRANCH}"
+                git push;
+                createPullRequest;
+                echo -e "${GREEN}PR created for branch ${BRANCH}"
+            else
+                echo -e "${RED}failed automatic cherry-picked without conflicts on branch ${BRANCH} please fix this manually ${NOCOLOR}";
+                git status;
+                exit 1;
+            fi
+        done
+
+        echo -e "${GREEN}multi git successfull ${NOCOLOR}"
+    else
+        echo -e "${RED}jq is not installed exiting...${NOCOLOR}";
+        exit1;
+    fi
+}
+
+function createPullRequest() {
+    curl https://api.bitbucket.org/2.0/repositories/${BB_OWNER}/${BB_REPO}/pullrequests \
+    -u ${BB_USERNAME}:${BB_PASSWORD} \
+    --request POST \
+    --header 'Content-Type: application/json' \
+    --data '{"title": "'"${COMMITMSG}"'","source": {"branch": {"name": "'"${TARGETBRANCHNAME}-${BRANCH: -5}"'"}},"destination": {"branch": {"name": "'"${BRANCH}"'"}},"reviewers": ['"${DEFAULT_REVIEWERS}"']}'
+}
+
+function setDefaultRepoReviewers() {
+    DEFAULT_REVIEWERS_RAW="$(curl https://api.bitbucket.org/2.0/repositories/${BB_OWNER}/${BB_REPO}/default-reviewers\?pagelen\=100 -u ${BB_USERNAME}:${BB_PASSWORD} --request GET | jq '[.values[] | {uuid: .uuid}]' | jq 'del(.[0])')"
+    DEFAULT_REVIEWERS_CUT=${DEFAULT_REVIEWERS_RAW:2}
+    DEFAULT_REVIEWERS=${DEFAULT_REVIEWERS_CUT%??}
+}
+
+run
