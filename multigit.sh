@@ -16,8 +16,6 @@ BLUE='\033[0;34m'
 # target branches
 BRANCHES=(
 develop-wave5-6.3-ftcr
-release/6.2.0
-release/6.2.1
 release/6.3.0
 release/6.3.1
 release/7.0.0
@@ -26,7 +24,7 @@ develop-wave5
 
 ## SCRIPT STARTS HERE
 function run() {
-    if command -v jq > /dev/null; then 
+    if command -v jq > /dev/null; then
         read -p "desired target branch basename: "  TARGETBRANCHNAME
         echo -e "${BLUE} $TARGETBRANCHNAME-xxxxx chosen ${NOCOLOR}"
         read -p "commit to be cherry-picked: " CHERRYCOMMIT
@@ -68,11 +66,11 @@ function createPullRequest() {
     -u ${BB_USERNAME}:${BB_PASSWORD} \
     --request POST \
     --header 'Content-Type: application/json' \
-    --data '{"title": "'"${COMMITMSG}"'","source": {"branch": {"name": "'"${TARGETBRANCHNAME}-${BRANCH: -5}"'"}},"destination": {"branch": {"name": "'"${BRANCH}"'"}},"reviewers": ['"${DEFAULT_REVIEWERS}"']}'
+    --data '{"title": "'"${COMMITMSG}"'","source": {"branch": {"name": "'"${TARGETBRANCHNAME}-${BRANCH: -5}"'"}},"destination": {"branch": {"name": "'"${BRANCH}"'"}},"reviewers": ['"${DEFAULT_REVIEWERS}"']}' > /dev/null 2>&1
 }
 
 function setDefaultRepoReviewers() {
-    DEFAULT_REVIEWERS_RAW="$(curl https://api.bitbucket.org/2.0/repositories/${BB_OWNER}/${BB_REPO}/default-reviewers\?pagelen\=100 -u ${BB_USERNAME}:${BB_PASSWORD} --request GET | jq '[.values[] | {uuid: .uuid}]' | jq 'del(.[0])')"
+    DEFAULT_REVIEWERS_RAW="$(curl https://api.bitbucket.org/2.0/repositories/${BB_OWNER}/${BB_REPO}/default-reviewers\?pagelen\=100 -u ${BB_USERNAME}:${BB_PASSWORD} --request GET | jq '[.values[] | {uuid: .uuid}]' | jq 'del(.[0])')" > /dev/null 2>&1
     DEFAULT_REVIEWERS_CUT=${DEFAULT_REVIEWERS_RAW:2}
     DEFAULT_REVIEWERS=${DEFAULT_REVIEWERS_CUT%??}
 }
