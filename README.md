@@ -3,7 +3,7 @@ Script to create multiple matching PR to target-branches
 
 # Prerequisites
  * curl 
- * jq (sudo apt-get install jq / brew install jq / chocolatey install jq) - https://stedolan.github.io/jq/download/
+ * jq - https://stedolan.github.io/jq/download/
  * see https://developer.atlassian.com/bitbucket/api/2/reference/resource/ for bb api doc
 
 
