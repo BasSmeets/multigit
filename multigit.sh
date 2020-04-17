@@ -29,6 +29,7 @@ function run() {
         echo -e "${BLUE} $TARGETBRANCHNAME-xxxxx chosen ${NOCOLOR}"
         read -p "commit to be cherry-picked: " CHERRYCOMMIT
         echo -e "${BLUE}commit = ${CHERRYCOMMIT} ${NOCOLOR}"
+        git pull > /dev/null 2>&1;
         COMMITMSG="$(git log --format=%B -n 1 ${CHERRYCOMMIT})"
         setDefaultRepoReviewers
         echo ${DEFAULT_REVIEWERS}
@@ -63,14 +64,15 @@ function run() {
 
 function createPullRequest() {
     curl https://api.bitbucket.org/2.0/repositories/${BB_OWNER}/${BB_REPO}/pullrequests \
+    -s \
     -u ${BB_USERNAME}:${BB_PASSWORD} \
     --request POST \
     --header 'Content-Type: application/json' \
-    --data '{"title": "'"${COMMITMSG}"'","source": {"branch": {"name": "'"${TARGETBRANCHNAME}-${BRANCH: -5}"'"}},"destination": {"branch": {"name": "'"${BRANCH}"'"}},"reviewers": ['"${DEFAULT_REVIEWERS}"']}' > /dev/null 2>&1
+    --data '{"title": "'"${COMMITMSG}"'","source": {"branch": {"name": "'"${TARGETBRANCHNAME}-${BRANCH: -5}"'"}},"destination": {"branch": {"name": "'"${BRANCH}"'"}},"reviewers": ['"${DEFAULT_REVIEWERS}"']}' > /dev/null
 }
 
 function setDefaultRepoReviewers() {
-    DEFAULT_REVIEWERS_RAW="$(curl https://api.bitbucket.org/2.0/repositories/${BB_OWNER}/${BB_REPO}/default-reviewers\?pagelen\=100 -u ${BB_USERNAME}:${BB_PASSWORD} --request GET | jq '[.values[] | {uuid: .uuid}]' | jq 'del(.[0])')" > /dev/null 2>&1
+    DEFAULT_REVIEWERS_RAW="$(curl https://api.bitbucket.org/2.0/repositories/${BB_OWNER}/${BB_REPO}/default-reviewers\?pagelen\=100 -u ${BB_USERNAME}:${BB_PASSWORD} -s --request GET | jq '[.values[] | {uuid: .uuid}]' | jq 'del(.[0])')" > /dev/null
     DEFAULT_REVIEWERS_CUT=${DEFAULT_REVIEWERS_RAW:2}
     DEFAULT_REVIEWERS=${DEFAULT_REVIEWERS_CUT%??}
 }
