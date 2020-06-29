@@ -32,7 +32,6 @@ function run() {
         git pull > /dev/null 2>&1;
         COMMITMSG="$(git log --format=%B -n 1 ${CHERRYCOMMIT})"
         setDefaultRepoReviewers
-        echo ${DEFAULT_REVIEWERS}
 
         for BRANCH in "${BRANCHES[@]}";
         do
